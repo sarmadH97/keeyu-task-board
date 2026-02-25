@@ -50,8 +50,29 @@ docker compose ps
 ```bash
 docker compose logs -f api
 docker compose logs -f web
+docker compose logs -f postgres
 docker compose down
 docker compose down -v
+```
+
+## Troubleshooting
+
+If the UI shows `Could not load boards` and the API response is:
+`503 INTERNAL_SERVER_ERROR: Database connection failed.`
+
+1. Ensure Postgres is running:
+```bash
+docker compose up -d postgres
+```
+2. Confirm DB health:
+```bash
+docker compose ps
+docker compose logs -f postgres
+```
+3. If credentials changed previously, recreate the Postgres volume:
+```bash
+docker compose down -v
+docker compose up -d --build
 ```
 
 ## Notes
