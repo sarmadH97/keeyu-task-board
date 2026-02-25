@@ -1,0 +1,72 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  user
+  admin
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+model User {
+  id        String   @id @default(uuid())
+  auth0Sub  String   @unique
+  email     String
+  role      Role     @default(user)
+  boards    Board[]
+  createdAt DateTime @default(now())
+}
+
+model Board {
+  id          String   @id @default(uuid())
+  ownerUserId String
+  owner       User     @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  position    BigInt
+  columns     Column[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([ownerUserId])
+  @@index([ownerUserId, position])
+}
+
+model Column {
+  id        String   @id @default(uuid())
+  title     String
+  position  BigInt
+  boardId   String
+  board     Board    @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  tasks     Task[]
+  createdAt DateTime @default(now())
+
+  @@index([boardId])
+  @@index([boardId, position])
+}
+
+model Task {
+  id          String    @id @default(uuid())
+  title       String
+  description String?
+  assigneeName String?
+  priority    Priority
+  position    BigInt
+  columnId    String
+  column      Column    @relation(fields: [columnId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+
+  @@index([columnId])
+  @@index([columnId, position])
+  @@index([priority])
+}
