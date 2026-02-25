@@ -1,0 +1,104 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: task-board-api
+  namespace: task-board
+  labels:
+    app: task-board-api
+spec:
+  selector:
+    app: task-board-api
+  ports:
+    - name: http
+      port: 3000
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: task-board-api
+  namespace: task-board
+  labels:
+    app: task-board-api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: task-board-api
+  template:
+    metadata:
+      labels:
+        app: task-board-api
+    spec:
+      containers:
+        - name: api
+          image: task-board-api:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 3000
+          env:
+            - name: NODE_ENV
+              valueFrom:
+                configMapKeyRef:
+                  name: task-board-config
+                  key: NODE_ENV
+            - name: HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: task-board-config
+                  key: HOST
+            - name: PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: task-board-config
+                  key: PORT
+            - name: CORS_ORIGIN
+              valueFrom:
+                configMapKeyRef:
+                  name: task-board-config
+                  key: CORS_ORIGIN
+            - name: AUTH0_AUDIENCE
+              valueFrom:
+                configMapKeyRef:
+                  name: task-board-config
+                  key: AUTH0_AUDIENCE
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: task-board-secrets
+                  key: DATABASE_URL
+            - name: AUTH0_DOMAIN
+              valueFrom:
+                secretKeyRef:
+                  name: task-board-secrets
+                  key: AUTH0_DOMAIN
+            - name: AUTH0_ISSUER
+              valueFrom:
+                secretKeyRef:
+                  name: task-board-secrets
+                  key: AUTH0_ISSUER
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 25
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+
