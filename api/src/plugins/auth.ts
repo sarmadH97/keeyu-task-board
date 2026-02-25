@@ -9,6 +9,8 @@ import { prisma } from "../lib/prisma";
 import { forbidden, unauthorized } from "../lib/errors";
 import type { AppRole, AuthTokenPayload, AuthenticatedUser } from "../types/auth";
 
+const AUTH0_ROLES_CLAIM_KEY = `${env.AUTH0_AUDIENCE}/roles`;
+
 function fallbackEmailForSub(sub: string): string {
   const sanitized = sub.toLowerCase().replace(/[^a-z0-9._-]/g, "_").slice(0, 48);
   return `${sanitized || "auth0_user"}@placeholder.local`;
@@ -53,6 +55,23 @@ function decodeJwtHeader(token: string): JwtHeaderLike | null {
   } catch {
     return null;
   }
+}
+
+function extractRoleFromTokenClaims(payload: AuthTokenPayload): AppRole | null {
+  const rawRoles = payload[AUTH0_ROLES_CLAIM_KEY];
+  if (!Array.isArray(rawRoles)) {
+    return null;
+  }
+
+  const normalizedRoles = rawRoles
+    .filter((role): role is string => typeof role === "string")
+    .map((role) => role.toLowerCase());
+
+  if (normalizedRoles.includes("admin")) {
+    return "admin";
+  }
+
+  return "user";
 }
 
 const authPlugin: FastifyPluginAsync = async (app) => {
@@ -173,14 +192,24 @@ const authPlugin: FastifyPluginAsync = async (app) => {
     const audClaim = payload.aud;
     request.log.debug({ sub: auth0Sub, aud: audClaim }, "JWT validated.");
     const emailFromToken = typeof payload.email === "string" && payload.email.length > 0 ? payload.email : null;
+    const roleFromToken = extractRoleFromTokenClaims(payload);
+
+    request.log.debug(
+      { rolesClaimKey: AUTH0_ROLES_CLAIM_KEY, roleFromToken },
+      "Resolved role from JWT claims.",
+    );
 
     const user = await prisma.user.upsert({
       where: { auth0Sub },
       create: {
         auth0Sub,
         email: emailFromToken ?? fallbackEmailForSub(auth0Sub),
+        role: roleFromToken ?? "user",
       },
-      update: emailFromToken ? { email: emailFromToken } : {},
+      update: {
+        ...(emailFromToken ? { email: emailFromToken } : {}),
+        ...(roleFromToken ? { role: roleFromToken } : {}),
+      },
     });
 
     const userContext: AuthenticatedUser = {
