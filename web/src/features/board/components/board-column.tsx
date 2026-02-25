@@ -59,7 +59,7 @@ function BoardColumnComponent({
       className={cn(
         "w-[320px] shrink-0 rounded-xl border border-slate-200/80 bg-white/90 p-3 shadow-[0_10px_24px_rgba(15,23,42,0.06)]",
         isDragging && "opacity-90 shadow-[0_14px_28px_rgba(15,23,42,0.14)]",
-        isOver && "border-blue-200",
+        isOver && "border-slate-300",
       )}
     >
       <div

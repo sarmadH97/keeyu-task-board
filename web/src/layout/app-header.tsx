@@ -110,7 +110,7 @@ export function AppHeader({
         <div ref={userMenuRef} className="relative">
           <button
             type="button"
-            className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-200"
+            className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
             onClick={() => setUserMenuOpen((previous) => !previous)}
             aria-expanded={isUserMenuOpen}
             aria-label="Open user menu"

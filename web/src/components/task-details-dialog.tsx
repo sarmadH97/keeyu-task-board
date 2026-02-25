@@ -112,7 +112,7 @@ export function TaskDetailsDialog({
               id="task-priority"
               value={priority}
               onChange={(event) => setPriority(event.target.value as TaskPriority)}
-              className="h-9 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-100"
+              className="h-9 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm text-slate-700 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200"
             >
               <option value="low">Low</option>
               <option value="medium">Medium</option>

@@ -13,6 +13,7 @@ import {
 import { SortableContext, horizontalListSortingStrategy } from "@dnd-kit/sortable";
 import { toast } from "sonner";
 
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { BoardColumn } from "@/features/board/components/board-column";
 import { TaskCardPreview } from "@/features/board/components/task-card";
 import {
@@ -35,6 +36,22 @@ interface KanbanBoardProps {
   searchTerm: string;
 }
 
+type PendingDeleteConfirmation =
+  | {
+      type: "task";
+      taskId: string;
+      title: string;
+      description: string;
+      confirmLabel: string;
+    }
+  | {
+      type: "column";
+      columnId: string;
+      title: string;
+      description: string;
+      confirmLabel: string;
+    };
+
 export function KanbanBoard({ board, searchTerm }: KanbanBoardProps) {
   const { user } = useAuth0();
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
@@ -42,6 +59,7 @@ export function KanbanBoard({ board, searchTerm }: KanbanBoardProps) {
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
   const [deletingColumnId, setDeletingColumnId] = useState<string | null>(null);
+  const [pendingDeleteConfirmation, setPendingDeleteConfirmation] = useState<PendingDeleteConfirmation | null>(null);
 
   const reorderMutation = useReorderTasksMutation();
   const reorderColumnsMutation = useReorderColumnsMutation();
@@ -248,22 +266,18 @@ export function KanbanBoard({ board, searchTerm }: KanbanBoardProps) {
       return;
     }
 
-    if (!window.confirm("Delete this task?")) {
+    const taskToDelete = board.columns.flatMap((column) => column.tasks).find((task) => task.id === taskId);
+    if (!taskToDelete) {
       return;
     }
 
-    setDeletingTaskId(taskId);
-    deleteTaskMutation.mutate(
-      {
-        boardId: board.id,
-        taskId,
-      },
-      {
-        onSettled: () => {
-          setDeletingTaskId(null);
-        },
-      },
-    );
+    setPendingDeleteConfirmation({
+      type: "task",
+      taskId,
+      title: `Delete "${taskToDelete.title}"?`,
+      description: "This task will be permanently deleted.",
+      confirmLabel: "Delete Task",
+    });
   };
 
   const handleDuplicateTask = (task: Task) => {
@@ -311,23 +325,51 @@ export function KanbanBoard({ board, searchTerm }: KanbanBoardProps) {
     }
 
     const hasTasks = column.tasks.length > 0;
-    const confirmMessage = hasTasks
-      ? `Delete "${column.title}" and all ${column.tasks.length} tasks in it?`
-      : `Delete "${column.title}"?`;
+    setPendingDeleteConfirmation({
+      type: "column",
+      columnId,
+      title: hasTasks
+        ? `Delete "${column.title}" and ${column.tasks.length} task${column.tasks.length === 1 ? "" : "s"}?`
+        : `Delete "${column.title}"?`,
+      description: hasTasks
+        ? "All tasks in this column will be deleted permanently."
+        : "This column will be permanently deleted.",
+      confirmLabel: "Delete Column",
+    });
+  };
 
-    if (!window.confirm(confirmMessage)) {
+  const handleConfirmDelete = () => {
+    if (!pendingDeleteConfirmation) {
       return;
     }
 
-    setDeletingColumnId(columnId);
+    if (pendingDeleteConfirmation.type === "task") {
+      setDeletingTaskId(pendingDeleteConfirmation.taskId);
+      deleteTaskMutation.mutate(
+        {
+          boardId: board.id,
+          taskId: pendingDeleteConfirmation.taskId,
+        },
+        {
+          onSettled: () => {
+            setDeletingTaskId(null);
+            setPendingDeleteConfirmation(null);
+          },
+        },
+      );
+      return;
+    }
+
+    setDeletingColumnId(pendingDeleteConfirmation.columnId);
     deleteColumnMutation.mutate(
       {
         boardId: board.id,
-        columnId,
+        columnId: pendingDeleteConfirmation.columnId,
       },
       {
         onSettled: () => {
           setDeletingColumnId(null);
+          setPendingDeleteConfirmation(null);
         },
       },
     );
@@ -421,6 +463,21 @@ export function KanbanBoard({ board, searchTerm }: KanbanBoardProps) {
               }
             : undefined
         }
+      />
+
+      <ConfirmDialog
+        open={Boolean(pendingDeleteConfirmation)}
+        title={pendingDeleteConfirmation?.title ?? "Confirm action"}
+        description={pendingDeleteConfirmation?.description}
+        confirmLabel={pendingDeleteConfirmation?.confirmLabel ?? "Confirm"}
+        tone="destructive"
+        isSubmitting={deleteTaskMutation.isPending || deleteColumnMutation.isPending}
+        onOpenChange={(open) => {
+          if (!open && !deleteTaskMutation.isPending && !deleteColumnMutation.isPending) {
+            setPendingDeleteConfirmation(null);
+          }
+        }}
+        onConfirm={handleConfirmDelete}
       />
     </div>
   );

@@ -1,4 +1,4 @@
-import { LayoutGrid, Settings } from "lucide-react";
+import { Settings } from "lucide-react";
 
 import { SidebarBoardsList } from "@/components/sidebar-boards-list";
 
@@ -25,11 +25,13 @@ export function AppSidebar({
   return (
     <div className="flex h-full flex-col justify-between">
       <div>
-        <div className="mb-8 flex items-center gap-2 px-2">
-          <div className="rounded-lg bg-blue-100 p-1.5 text-blue-600">
-            <LayoutGrid className="h-4 w-4" />
-          </div>
-          <span className="text-sm font-semibold text-slate-700">Task Board</span>
+        <div className="mb-8 px-2">
+          <img
+            src="https://cdn.prod.website-files.com/68b510e785c9b2f4b960016e/68ca15d1404821bbdabef514_Keeyu%20Logo.svg"
+            alt="Keeyu"
+            className="h-5 w-auto object-contain"
+          />
+          <p className="mt-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Task Board</p>
         </div>
         <SidebarBoardsList
           boards={projects}

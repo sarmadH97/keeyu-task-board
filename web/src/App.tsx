@@ -6,6 +6,7 @@ import { Navigate, Route, Routes, useLocation, useMatch, useNavigate } from "rea
 import { toast } from "sonner";
 
 import { getApiErrorMessage } from "@/api/client";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { CreateBoardDialog, type CreateBoardFormValues } from "@/components/create-board-dialog";
 import { CreateColumnDialog, type CreateColumnFormValues } from "@/components/create-column-dialog";
 import { ErrorState } from "@/components/error-state";
@@ -30,6 +31,7 @@ function App() {
   const [isCreateBoardDialogOpen, setCreateBoardDialogOpen] = useState(false);
   const [isCreateColumnDialogOpen, setCreateColumnDialogOpen] = useState(false);
   const [deletingBoardId, setDeletingBoardId] = useState<string | null>(null);
+  const [pendingBoardDeleteId, setPendingBoardDeleteId] = useState<string | null>(null);
   const [hasAutoLoginAttempted, setHasAutoLoginAttempted] = useState(false);
 
   const queryClient = useQueryClient();
@@ -74,6 +76,9 @@ function App() {
 
   const board = boardQuery.data;
   const activeBoardSummary = boards.find((boardSummary) => boardSummary.id === activeBoardId) ?? null;
+  const pendingBoardDelete = pendingBoardDeleteId
+    ? boards.find((boardSummary) => boardSummary.id === pendingBoardDeleteId) ?? null
+    : null;
   const userDisplayName = useMemo(() => {
     const name =
       (typeof user?.name === "string" && user.name.trim().length > 0 ? user.name : null) ??
@@ -190,6 +195,15 @@ function App() {
       return;
     }
 
+    setPendingBoardDeleteId(boardId);
+  };
+
+  const handleConfirmDeleteBoard = () => {
+    if (!pendingBoardDeleteId || deleteBoardMutation.isPending) {
+      return;
+    }
+
+    const boardId = pendingBoardDeleteId;
     const nextBoardId = boards.find((boardSummary) => boardSummary.id !== boardId)?.id ?? null;
     const nextPath = nextBoardId ? `/boards/${nextBoardId}` : "/boards";
     const isDeletingActiveBoard = activeBoardId === boardId || routeBoardId === boardId;
@@ -203,6 +217,7 @@ function App() {
       },
       onSettled: () => {
         setDeletingBoardId(null);
+        setPendingBoardDeleteId(null);
       },
     });
   };
@@ -273,7 +288,7 @@ function App() {
 
   if (!isAuthenticated && isAuthLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top_left,_#f6f9ff_0%,_#eef2f8_52%,_#edf0f5_100%)] px-4">
+      <div className="keeyu-gradient flex min-h-screen items-center justify-center px-4">
         <div className="w-full max-w-md rounded-2xl border border-slate-200/70 bg-white/85 p-8 text-center shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
           <h2 className="text-lg font-semibold text-slate-700">Completing sign in</h2>
           <p className="mt-2 text-sm text-slate-500">Please wait while we finish authentication.</p>
@@ -288,7 +303,7 @@ function App() {
         <Route
           path="/login"
           element={
-            <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top_left,_#f6f9ff_0%,_#eef2f8_52%,_#edf0f5_100%)] px-4">
+            <div className="keeyu-gradient flex min-h-screen items-center justify-center px-4">
               <div className="w-full max-w-md rounded-2xl border border-slate-200/70 bg-white/85 p-8 text-center shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
                 <h2 className="text-lg font-semibold text-slate-700">Sign in required</h2>
                 <p className="mt-2 text-sm text-slate-500">
@@ -453,10 +468,25 @@ function App() {
         onSubmit={handleCreateBoardSubmit}
       />
       <CreateColumnDialog
+        key={isCreateColumnDialogOpen ? "column-dialog-open" : "column-dialog-closed"}
         open={isCreateColumnDialogOpen}
         isSubmitting={createColumnMutation.isPending}
         onOpenChange={setCreateColumnDialogOpen}
         onSubmit={handleCreateColumnSubmit}
+      />
+      <ConfirmDialog
+        open={Boolean(pendingBoardDelete)}
+        title={pendingBoardDelete ? `Delete "${pendingBoardDelete.title}"?` : "Delete board?"}
+        description="All columns and tasks in this board will be permanently deleted."
+        confirmLabel="Delete Board"
+        tone="destructive"
+        isSubmitting={deleteBoardMutation.isPending}
+        onOpenChange={(open) => {
+          if (!open && !deleteBoardMutation.isPending) {
+            setPendingBoardDeleteId(null);
+          }
+        }}
+        onConfirm={handleConfirmDeleteBoard}
       />
     </AppShell>
   );

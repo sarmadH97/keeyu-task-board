@@ -45,7 +45,7 @@ export function SidebarBoardsList({
             key={board.id}
             className={cn(
               "group flex items-center gap-1 rounded-lg transition-colors duration-200",
-              board.id === activeBoardId ? "bg-blue-50" : "hover:bg-slate-100/80",
+              board.id === activeBoardId ? "bg-slate-100" : "hover:bg-slate-100/80",
             )}
           >
             <Link
