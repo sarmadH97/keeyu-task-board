@@ -1,7 +1,7 @@
 import { memo, useMemo } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Pencil, Trash2 } from "lucide-react";
+import { Copy, Pencil, Trash2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,9 @@ interface TaskCardProps {
   task: Task;
   dragDisabled?: boolean;
   onEdit: (task: Task) => void;
+  onDuplicate: (task: Task) => void;
   onDelete: (taskId: string) => void;
+  actionsDisabled?: boolean;
   isDeleting?: boolean;
 }
 
@@ -36,7 +38,15 @@ function formatDate(input: string | null | undefined): string {
   }).format(date);
 }
 
-function TaskCardComponent({ task, dragDisabled = false, onEdit, onDelete, isDeleting = false }: TaskCardProps) {
+function TaskCardComponent({
+  task,
+  dragDisabled = false,
+  onEdit,
+  onDuplicate,
+  onDelete,
+  actionsDisabled = false,
+  isDeleting = false,
+}: TaskCardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: taskDragId(task.id),
     disabled: dragDisabled,
@@ -77,9 +87,25 @@ function TaskCardComponent({ task, dragDisabled = false, onEdit, onDelete, isDel
               event.stopPropagation();
               onEdit(task);
             }}
+            disabled={actionsDisabled}
             aria-label={`Edit ${task.title}`}
           >
             <Pencil className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            type="button"
+            size="icon"
+            variant="subtle"
+            className="h-6 w-6 rounded-md text-slate-400 hover:text-slate-600"
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={(event) => {
+              event.stopPropagation();
+              onDuplicate(task);
+            }}
+            disabled={actionsDisabled}
+            aria-label={`Duplicate ${task.title}`}
+          >
+            <Copy className="h-3.5 w-3.5" />
           </Button>
           <Button
             type="button"
@@ -91,7 +117,7 @@ function TaskCardComponent({ task, dragDisabled = false, onEdit, onDelete, isDel
               event.stopPropagation();
               onDelete(task.id);
             }}
-            disabled={isDeleting}
+            disabled={isDeleting || actionsDisabled}
             aria-label={`Delete ${task.title}`}
           >
             <Trash2 className="h-3.5 w-3.5" />

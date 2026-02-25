@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-import { createColumn, reorderColumn } from "@/api/columns";
+import { createColumn, deleteColumn, reorderColumn } from "@/api/columns";
 import { getApiErrorMessage } from "@/api/client";
 import type { Board, BoardColumn, CreateColumnPayload, ReorderColumnPayload } from "@/features/board/types";
 import { useApiClient } from "@/hooks/use-api-client";
@@ -58,6 +58,51 @@ export function useReorderColumnsMutation() {
       }
 
       toast.error(getApiErrorMessage(error, "Could not reorder columns"));
+    },
+    onSettled: (_data, _error, variables) => {
+      queryClient.invalidateQueries({ queryKey: boardQueryKeys.detail(variables.boardId) });
+    },
+  });
+}
+
+interface DeleteColumnMutationVariables {
+  boardId: string;
+  columnId: string;
+}
+
+interface DeleteColumnMutationContext {
+  previousBoard: Board | undefined;
+}
+
+export function useDeleteColumnMutation() {
+  const apiClient = useApiClient();
+  const queryClient = useQueryClient();
+
+  return useMutation<void, Error, DeleteColumnMutationVariables, DeleteColumnMutationContext>({
+    mutationFn: ({ columnId }) => deleteColumn(apiClient, columnId),
+    onMutate: async ({ boardId, columnId }) => {
+      await queryClient.cancelQueries({ queryKey: boardQueryKeys.detail(boardId) });
+
+      const previousBoard = queryClient.getQueryData<Board>(boardQueryKeys.detail(boardId));
+
+      if (previousBoard) {
+        queryClient.setQueryData<Board>(boardQueryKeys.detail(boardId), {
+          ...previousBoard,
+          columns: previousBoard.columns.filter((column) => column.id !== columnId),
+        });
+      }
+
+      return { previousBoard };
+    },
+    onError: (error, variables, context) => {
+      if (context?.previousBoard) {
+        queryClient.setQueryData(boardQueryKeys.detail(variables.boardId), context.previousBoard);
+      }
+
+      toast.error(getApiErrorMessage(error, "Could not delete column"));
+    },
+    onSuccess: () => {
+      toast.success("Column deleted");
     },
     onSettled: (_data, _error, variables) => {
       queryClient.invalidateQueries({ queryKey: boardQueryKeys.detail(variables.boardId) });

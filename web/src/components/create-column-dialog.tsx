@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -25,6 +25,12 @@ interface CreateColumnDialogProps {
 export function CreateColumnDialog({ open, isSubmitting, onOpenChange, onSubmit }: CreateColumnDialogProps) {
   const [title, setTitle] = useState("");
   const trimmedTitle = title.trim();
+
+  useEffect(() => {
+    if (!open) {
+      setTitle("");
+    }
+  }, [open]);
 
   const handleOpenChange = (nextOpen: boolean) => {
     if (!nextOpen) {

@@ -2,7 +2,7 @@ import { memo } from "react";
 import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Plus } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -15,20 +15,28 @@ interface BoardColumnProps {
   column: BoardColumnType;
   onAddTask: (columnId: string) => void;
   onEditTask: (task: BoardColumnType["tasks"][number]) => void;
+  onDuplicateTask: (task: BoardColumnType["tasks"][number]) => void;
   onDeleteTask: (taskId: string) => void;
+  onDeleteColumn: (columnId: string) => void;
+  isDeletingColumn: boolean;
   deletingTaskId: string | null;
   dragDisabled?: boolean;
   columnDragDisabled?: boolean;
+  taskActionsDisabled?: boolean;
 }
 
 function BoardColumnComponent({
   column,
   onAddTask,
   onEditTask,
+  onDuplicateTask,
   onDeleteTask,
+  onDeleteColumn,
+  isDeletingColumn,
   deletingTaskId,
   dragDisabled = false,
   columnDragDisabled = false,
+  taskActionsDisabled = false,
 }: BoardColumnProps) {
   const { attributes, listeners, isDragging, setNodeRef, transform, transition } = useSortable({
     id: columnDragId(column.id),
@@ -64,7 +72,24 @@ function BoardColumnComponent({
       >
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-semibold text-slate-700">{column.title}</h2>
-          <span className="rounded-md bg-white px-2 py-0.5 text-xs text-slate-500">{column.tasks.length}</span>
+          <div className="flex items-center gap-1">
+            <span className="rounded-md bg-white px-2 py-0.5 text-xs text-slate-500">{column.tasks.length}</span>
+            <Button
+              type="button"
+              size="icon"
+              variant="subtle"
+              className="h-6 w-6 rounded-md text-slate-400 hover:text-red-500"
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={(event) => {
+                event.stopPropagation();
+                onDeleteColumn(column.id);
+              }}
+              disabled={isDeletingColumn}
+              aria-label={`Delete ${column.title}`}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -77,7 +102,9 @@ function BoardColumnComponent({
                 task={task}
                 dragDisabled={dragDisabled}
                 onEdit={onEditTask}
+                onDuplicate={onDuplicateTask}
                 onDelete={onDeleteTask}
+                actionsDisabled={taskActionsDisabled}
                 isDeleting={deletingTaskId === task.id}
               />
             ))

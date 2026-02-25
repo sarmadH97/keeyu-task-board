@@ -1,4 +1,4 @@
-import { LayoutGrid, LogOut, Settings } from "lucide-react";
+import { LayoutGrid, Settings } from "lucide-react";
 
 import { SidebarBoardsList } from "@/components/sidebar-boards-list";
 
@@ -13,7 +13,6 @@ interface AppSidebarProps {
   onCreateBoard: () => void;
   onDeleteBoard: (boardId: string) => void;
   deletingBoardId: string | null;
-  onLogout?: () => void;
 }
 
 export function AppSidebar({
@@ -22,7 +21,6 @@ export function AppSidebar({
   onCreateBoard,
   onDeleteBoard,
   deletingBoardId,
-  onLogout,
 }: AppSidebarProps) {
   return (
     <div className="flex h-full flex-col justify-between">
@@ -50,16 +48,6 @@ export function AppSidebar({
           <Settings className="h-4 w-4" />
           Settings
         </button>
-        {onLogout ? (
-          <button
-            type="button"
-            onClick={onLogout}
-            className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-sm text-slate-500 transition-colors duration-200 hover:bg-slate-100/80 hover:text-slate-700"
-          >
-            <LogOut className="h-4 w-4" />
-            Logout
-          </button>
-        ) : null}
       </div>
     </div>
   );

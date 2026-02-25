@@ -43,6 +43,7 @@ function App() {
     isLoading: isAuthLoading,
     loginWithRedirect,
     logout,
+    user,
     error: authError,
   } = useAuth0();
 
@@ -73,6 +74,18 @@ function App() {
 
   const board = boardQuery.data;
   const activeBoardSummary = boards.find((boardSummary) => boardSummary.id === activeBoardId) ?? null;
+  const userDisplayName = useMemo(() => {
+    const name =
+      (typeof user?.name === "string" && user.name.trim().length > 0 ? user.name : null) ??
+      (typeof user?.nickname === "string" && user.nickname.trim().length > 0 ? user.nickname : null) ??
+      (typeof user?.email === "string" && user.email.trim().length > 0
+        ? user.email.split("@")[0]?.trim() ?? null
+        : null);
+
+    return name ?? "User";
+  }, [user]);
+  const userEmail = typeof user?.email === "string" ? user.email : "";
+  const userAvatarUrl = typeof user?.picture === "string" ? user.picture : undefined;
 
   const isLoading =
     isAuthLoading ||
@@ -237,6 +250,15 @@ function App() {
     location.pathname,
   ]);
 
+  useEffect(() => {
+    if (isAuthLoading || isAuthenticated || !hasAuthCallbackParams || authError) {
+      return;
+    }
+
+    // Recover from stale/failed callback params so the user can retry sign-in.
+    navigate("/login", { replace: true });
+  }, [authError, hasAuthCallbackParams, isAuthLoading, isAuthenticated, navigate]);
+
   const handleLogout = () => {
     setSessionExpired(false);
     window.sessionStorage.removeItem("auth:unauthorized-notified");
@@ -249,7 +271,7 @@ function App() {
     });
   };
 
-  if (!isAuthenticated && (isAuthLoading || (hasAuthCallbackParams && !authError))) {
+  if (!isAuthenticated && isAuthLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top_left,_#f6f9ff_0%,_#eef2f8_52%,_#edf0f5_100%)] px-4">
         <div className="w-full max-w-md rounded-2xl border border-slate-200/70 bg-white/85 p-8 text-center shadow-[0_8px_24px_rgba(15,23,42,0.04)]">
@@ -300,7 +322,6 @@ function App() {
             onCreateBoard={() => setCreateBoardDialogOpen(true)}
             onDeleteBoard={handleDeleteBoard}
             deletingBoardId={deletingBoardId}
-            onLogout={handleLogout}
           />
         }
         header={
@@ -309,6 +330,10 @@ function App() {
             searchValue={searchTerm}
             onSearchChange={setSearchTerm}
             searchDisabled
+            userDisplayName={userDisplayName}
+            userEmail={userEmail}
+            userAvatarUrl={userAvatarUrl}
+            onLogout={handleLogout}
           />
         }
       >
@@ -399,7 +424,6 @@ function App() {
           onCreateBoard={() => setCreateBoardDialogOpen(true)}
           onDeleteBoard={handleDeleteBoard}
           deletingBoardId={deletingBoardId}
-          onLogout={handleLogout}
         />
       }
       header={
@@ -408,6 +432,10 @@ function App() {
           searchValue={searchTerm}
           onSearchChange={setSearchTerm}
           searchDisabled={!board}
+          userDisplayName={userDisplayName}
+          userEmail={userEmail}
+          userAvatarUrl={userAvatarUrl}
+          onLogout={handleLogout}
         />
       }
     >

@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useAuth0 } from "@auth0/auth0-react";
 import {
   DndContext,
   DragOverlay,
@@ -10,6 +11,7 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { SortableContext, horizontalListSortingStrategy } from "@dnd-kit/sortable";
+import { toast } from "sonner";
 
 import { BoardColumn } from "@/features/board/components/board-column";
 import { TaskCardPreview } from "@/features/board/components/task-card";
@@ -26,7 +28,7 @@ import { positionBetween, sortByPosition } from "@/features/board/ordering";
 import type { Board, Task } from "@/features/board/types";
 import { useCreateTaskMutation, useDeleteTaskMutation, useReorderTasksMutation, useUpdateTaskMutation } from "@/hooks/use-task-mutations";
 import { TaskDetailsDialog, type TaskDetailsFormValues } from "@/components/task-details-dialog";
-import { useReorderColumnsMutation } from "@/hooks/use-column-mutations";
+import { useDeleteColumnMutation, useReorderColumnsMutation } from "@/hooks/use-column-mutations";
 
 interface KanbanBoardProps {
   board: Board;
@@ -34,16 +36,30 @@ interface KanbanBoardProps {
 }
 
 export function KanbanBoard({ board, searchTerm }: KanbanBoardProps) {
+  const { user } = useAuth0();
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
   const [createTaskColumnId, setCreateTaskColumnId] = useState<string | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
+  const [deletingColumnId, setDeletingColumnId] = useState<string | null>(null);
 
   const reorderMutation = useReorderTasksMutation();
   const reorderColumnsMutation = useReorderColumnsMutation();
+  const deleteColumnMutation = useDeleteColumnMutation();
   const createTaskMutation = useCreateTaskMutation();
   const updateTaskMutation = useUpdateTaskMutation();
   const deleteTaskMutation = useDeleteTaskMutation();
+
+  const defaultAssigneeName = useMemo(() => {
+    const preferredName =
+      (typeof user?.name === "string" && user.name.trim().length > 0 ? user.name : null) ??
+      (typeof user?.nickname === "string" && user.nickname.trim().length > 0 ? user.nickname : null) ??
+      (typeof user?.email === "string" && user.email.includes("@")
+        ? user.email.split("@")[0]?.trim() ?? null
+        : null);
+
+    return preferredName ?? "";
+  }, [user]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -250,6 +266,73 @@ export function KanbanBoard({ board, searchTerm }: KanbanBoardProps) {
     );
   };
 
+  const handleDuplicateTask = (task: Task) => {
+    if (createTaskMutation.isPending) {
+      return;
+    }
+
+    const column = board.columns.find((candidate) => candidate.id === task.columnId);
+    if (!column) {
+      return;
+    }
+
+    const sortedTasks = sortByPosition(column.tasks);
+    const lastTask = sortedTasks.at(-1);
+    const nextPosition =
+      positionBetween(lastTask?.position, undefined) ?? (BigInt(lastTask?.position ?? "0") + 1024n).toString();
+
+    const duplicateTitle = task.title.endsWith("(Copy)") ? `${task.title} 2` : `${task.title} (Copy)`;
+
+    createTaskMutation.mutate({
+      boardId: board.id,
+      optimisticPosition: nextPosition,
+      payload: {
+        columnId: task.columnId,
+        title: duplicateTitle,
+        description: task.description ?? undefined,
+        assigneeName: task.assigneeName ?? undefined,
+        priority: task.priority,
+      },
+    }, {
+      onSuccess: () => {
+        toast.success("Task duplicated");
+      },
+    });
+  };
+
+  const handleDeleteColumn = (columnId: string) => {
+    if (deleteColumnMutation.isPending) {
+      return;
+    }
+
+    const column = board.columns.find((candidate) => candidate.id === columnId);
+    if (!column) {
+      return;
+    }
+
+    const hasTasks = column.tasks.length > 0;
+    const confirmMessage = hasTasks
+      ? `Delete "${column.title}" and all ${column.tasks.length} tasks in it?`
+      : `Delete "${column.title}"?`;
+
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+
+    setDeletingColumnId(columnId);
+    deleteColumnMutation.mutate(
+      {
+        boardId: board.id,
+        columnId,
+      },
+      {
+        onSettled: () => {
+          setDeletingColumnId(null);
+        },
+      },
+    );
+  };
+
   return (
     <div className="mx-auto w-full max-w-[1220px]">
       {isFiltering ? (
@@ -272,15 +355,26 @@ export function KanbanBoard({ board, searchTerm }: KanbanBoardProps) {
                   column={column}
                   onAddTask={handleAddTask}
                   onEditTask={setEditingTask}
+                  onDuplicateTask={handleDuplicateTask}
                   onDeleteTask={handleDeleteTask}
+                  onDeleteColumn={handleDeleteColumn}
+                  isDeletingColumn={deletingColumnId === column.id}
                   deletingTaskId={deletingTaskId}
-                  dragDisabled={isFiltering || reorderMutation.isPending || updateTaskMutation.isPending}
+                  dragDisabled={
+                    isFiltering ||
+                    reorderMutation.isPending ||
+                    updateTaskMutation.isPending ||
+                    createTaskMutation.isPending ||
+                    deleteTaskMutation.isPending
+                  }
                   columnDragDisabled={
                     isFiltering ||
                     reorderMutation.isPending ||
                     reorderColumnsMutation.isPending ||
-                    updateTaskMutation.isPending
+                    updateTaskMutation.isPending ||
+                    deleteColumnMutation.isPending
                   }
+                  taskActionsDisabled={createTaskMutation.isPending || updateTaskMutation.isPending}
                 />
               ))}
             </div>
@@ -290,7 +384,7 @@ export function KanbanBoard({ board, searchTerm }: KanbanBoardProps) {
       </div>
 
       <TaskDetailsDialog
-        key={`create-${createTaskColumnId ?? "closed"}`}
+        key={`create-${createTaskColumnId ?? "closed"}-${defaultAssigneeName || "none"}`}
         open={Boolean(createTaskColumnId)}
         mode="create"
         isSubmitting={createTaskMutation.isPending}
@@ -301,6 +395,7 @@ export function KanbanBoard({ board, searchTerm }: KanbanBoardProps) {
         }}
         onSubmit={handleCreateTaskSubmit}
         defaultValues={{
+          assigneeName: defaultAssigneeName,
           priority: "medium",
         }}
       />
