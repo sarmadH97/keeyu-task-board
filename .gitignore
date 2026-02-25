@@ -1,0 +1,17 @@
+# Dependencies
+**/node_modules/
+
+# Build output
+api/dist/
+web/dist/
+*.tsbuildinfo
+
+# Local env files
+.env
+.env.*
+api/.env
+web/.env*
+!.env.example
+
+# Local editor/agent config
+web/.claude/
